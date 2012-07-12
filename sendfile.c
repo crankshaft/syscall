@@ -26,6 +26,8 @@ int main(int argc, char *argv[])
 {
 	int in, out;
 	ssize_t sz;
+	size_t left;
+	off_t offset;
 
 	in = open("./sendfile.c", O_RDONLY);
 
@@ -37,7 +39,7 @@ int main(int argc, char *argv[])
 
 	out = socket(AF_INET, SOCK_STREAM, 0);
 	assert(out > 0);
-	set_addr(&addr, "127.0.0.0", 8080);
+	set_addr(&addr, "127.0.0.1", 8080);
 	ret = connect(out, (const struct sockaddr *)&addr, sizeof(struct sockaddr_in));
 	if (ret != 0) {
 		perror("connect");
@@ -46,12 +48,19 @@ int main(int argc, char *argv[])
 #endif
 	assert(in>0 && out>0);
 
-	sz = sendfile(out, in, 0, 512);
-	if (sz < 0) {
-		perror("sendfile");
-		return 1;
+	offset = 0x4020008BD0LLU;
+	left = 60000;
+
+	while (left) {
+		sz = sendfile(out, in, &offset, left);
+		if (sz < 1) {
+			perror("sendfile");
+			break;
+		}
+		printf("sent: %zd\n", sz);
+		left -= sz;
+		offset += sz;
 	}
-	printf("%d\n", sz);
 	close(in);
 	close(out);
 
